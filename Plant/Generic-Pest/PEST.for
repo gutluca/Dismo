@@ -193,6 +193,8 @@ C***********************************************************************
 !     Seasonal initialization - run once per season
 C***********************************************************************
       ELSEIF (DYNAMIC .EQ. SEASINIT) THEN
+      PCN = 0
+      VPHOTF_DISMO = 1.0
 C-----------------------------------------------------------------------
 C     Subroutine IPPROG reads FILET, the pest time series file.
 C-----------------------------------------------------------------------
@@ -302,6 +304,7 @@ C-----------------------------------------------------------------------
         RHUM_DIS = WEATHER_PEST % RHUM
         CALL GET('PLANT', 'XLAID',  XLAI_DIS)
         CALL GET('PLANT', 'NVEG0D', NVEG0_DIS)
+        CALL GET('PLANT', 'YREMGD', YREMRG_DIS)
         CALL GET('PLANT', 'YRENDD', YREND_DIS)
 
         CALL DISEASE_LEAF(RATE,

@@ -1,5 +1,5 @@
 C=======================================================================
-C COPYRIGHT 1998-2024
+C COPYRIGHT 1998-2026
 C                     DSSAT Foundation
 C                     University of Florida, Gainesville, Florida
 C                     International Fertilizer Development Center
@@ -42,17 +42,17 @@ C=======================================================================
 !     Variables not used:
 !     KSEVAP, KTRANS, HARVFRAC, 
 !-----------------------------------------------------------------------
-      USE ModuleDefs     !Definitions of constructed variable types, 
-        ! which contain control information, soil
-        ! parameters, hourly weather data.
+      USE ModuleDefs
       USE ModuleData
+      USE SumModule
+
       IMPLICIT NONE
       EXTERNAL FOR_IPPLNT, FOR_PHOTO, FOR_PHENOL, FOR_DORMANCY,
      &  FOR_PEST, FOR_DEMAND, FOR_INCOMP, FOR_SENMOB, FOR_NUPTAK,
      &  FOR_NFIX, FOR_PODS, FOR_PODDET, FOR_CH2OREF, FOR_VEGGR,
      &  FOR_ROOTS, FOR_GROW, for_opgrow, for_mobil,
      &  for_opmob, FOR_RESPIR, FOR_FREEZE, FORAGE_HARVEST,
-     &  SUMVALS, FOR_PLANTNBAL, FOR_HRES_CGRO
+     &  FOR_PLANTNBAL, FOR_HRES_CGRO
       SAVE
 !-----------------------------------------------------------------------
       CHARACTER*1 DETACH, IDETO, ISWNIT, ISWSYM,
@@ -476,7 +476,7 @@ C-----------------------------------------------------------------------
      &    STRWT, SW, SWFAC, TDUMX, TDUMX2, VSTAGE, WCRLF,       !Input
      &    WCRRT,WCRSH, WCRSR, WCRST, WNRLF, WNRRT, WNRSH,       !Input
      &    WNRSR,WNRST, WTLF, XLAI, XPOD,                        !Input
-     &    YRDOY, YRSIM,                                         !Input
+     &    YRDOY, YRSIM, TGRO,                                   !Input
      &    CMINELF, CMINEP, CMINERT, CMINESH, CMINESR,           !Output
      &    CMINEST, CMOBMX, CMOBSR, LAIMOBR, LFCMINE,            !Output
      &    LFSCMOB, LFSENWT, LFSNMOB, LTSEN, NMINELF,            !Output
@@ -968,7 +968,7 @@ C-----------------------------------------------------------------------
      &    STRWT, SW, SWFAC, TDUMX, TDUMX2, VSTAGE, WCRLF,       !Input
      &    WCRRT,WCRSH, WCRSR, WCRST, WNRLF, WNRRT, WNRSH,       !Input
      &    WNRSR,WNRST, WTLF, XLAI, XPOD,                        !Input
-     &    YRDOY, YRSIM,                                         !Input
+     &    YRDOY, YRSIM, TGRO,                                   !Input
      &    CMINELF, CMINEP, CMINERT, CMINESH, CMINESR,           !Output
      &    CMINEST, CMOBMX, CMOBSR, LAIMOBR, LFCMINE,            !Output
      &    LFSCMOB, LFSENWT, LFSNMOB, LTSEN, NMINELF,            !Output
@@ -1490,7 +1490,7 @@ C-----------------------------------------------------------------------
      &    STRWT, SW, SWFAC, TDUMX, TDUMX2, VSTAGE, WCRLF,       !Input
      &    WCRRT,WCRSH, WCRSR, WCRST, WNRLF, WNRRT, WNRSH,       !Input
      &    WNRSR,WNRST, WTLF, XLAI, XPOD,                        !Input
-     &    YRDOY, YRSIM,                                         !Input
+     &    YRDOY, YRSIM, TGRO,                                   !Input
      &    CMINELF, CMINEP, CMINERT, CMINESH, CMINESR,           !Output
      &    CMINEST, CMOBMX, CMOBSR, LAIMOBR, LFCMINE,            !Output
      &    LFSCMOB, LFSENWT, LFSNMOB, LTSEN, NMINELF,            !Output

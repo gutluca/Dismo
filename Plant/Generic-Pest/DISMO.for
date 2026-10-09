@@ -588,7 +588,7 @@ C***********************************************************************
           IF (.NOT. HDR_DONE) THEN
               HDR_DONE = .TRUE.
               WRITE(LUN_OUT,'(A)') ' '
-              WRITE(LUN_OUT,'(A,I4,A,A,A,A,1X,A,I5)')
+              WRITE(LUN_OUT,'(A,I4,A,A,A,A,1X,I5)')
      &         '*RUN',CONTROL%RUN,'        : ',
      &         CONTROL%ENAME,
      &         '                      ',

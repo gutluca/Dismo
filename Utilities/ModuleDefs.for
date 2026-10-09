@@ -447,6 +447,8 @@ C             CHP Added TRTNUM to CONTROL variable.
         REAL CANHT, CANWH, DXR57, EXCESS,
      &    PLTPOP, RNITP, SLAAD, XPOD
         REAL BIOMAS
+        REAL :: XLAI_D = 0.0, VPHOTF = 1.0
+        INTEGER :: NVEG0_D = 0, YREMRG_D = 0, YREND_D = 0
         INTEGER NR5, iSTAGE, iSTGDOY
         CHARACTER*10 iSTNAME
       END TYPE PlantType
@@ -711,6 +713,8 @@ C             CHP Added TRTNUM to CONTROL variable.
         Case ('RNITP') ; Value = SAVE_data % PLANT % RNITP
         Case ('SLAAD') ; Value = SAVE_data % PLANT % SLAAD
         Case ('XPOD')  ; Value = SAVE_data % PLANT % XPOD
+        Case ('XLAID');  Value = SAVE_data % PLANT % XLAI_D
+        Case ('VPHOTF'); Value = SAVE_data % PLANT % VPHOTF
         Case DEFAULT; ERR = .TRUE.
         END SELECT
 
@@ -855,6 +859,8 @@ C             CHP Added TRTNUM to CONTROL variable.
         Case ('RNITP');  SAVE_data % PLANT % RNITP  = Value
         Case ('SLAAD');  SAVE_data % PLANT % SLAAD  = Value
         Case ('XPOD');   SAVE_data % PLANT % XPOD   = Value
+        Case ('XLAID');  SAVE_data % PLANT % XLAI_D = Value
+        Case ('VPHOTF'); SAVE_data % PLANT % VPHOTF = Value
         Case DEFAULT; ERR = .TRUE.
         END SELECT
 
@@ -1017,6 +1023,9 @@ C             CHP Added TRTNUM to CONTROL variable.
       Case ('PLANT')
         SELECT CASE (VarName)
         Case ('NR5');  Value = SAVE_data % PLANT % NR5
+        Case ('NVEG0D'); Value = SAVE_data % PLANT % NVEG0_D
+        Case ('YREMGD'); Value = SAVE_data % PLANT % YREMRG_D
+        Case ('YRENDD'); Value = SAVE_data % PLANT % YREND_D
         Case ('iSTAGE');  Value = SAVE_data % PLANT % iSTAGE
         Case ('iSTGDOY'); Value = SAVE_data % PLANT % iSTGDOY
         Case DEFAULT; ERR = .TRUE.
@@ -1064,6 +1073,9 @@ C             CHP Added TRTNUM to CONTROL variable.
       Case ('PLANT')
         SELECT CASE (VarName)
         Case ('NR5');  SAVE_data % PLANT % NR5  = Value
+        Case ('NVEG0D'); SAVE_data % PLANT % NVEG0_D = Value
+        Case ('YREMGD'); SAVE_data % PLANT % YREMRG_D = Value
+        Case ('YRENDD'); SAVE_data % PLANT % YREND_D = Value
         Case ('iSTAGE');  SAVE_data % PLANT % iSTAGE  = Value
         Case ('iSTGDOY'); SAVE_data % PLANT % iSTGDOY = Value
         Case DEFAULT; ERR = .TRUE.

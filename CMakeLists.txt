@@ -95,7 +95,7 @@ configure_file(
 )
 IF(WIN32)
     SET(OSDefinitions "Utilities/OSDefsWINDOWS.for")
-    add_definitions(-DWIN32=1})
+    add_definitions(-DWIN32=1)
 ELSE()
     SET(DSSAT_INSTALL_DIR $CMAKE_INSTALL_PREFIX)
     SET(OSDefinitions "Utilities/OSDefsLINUX.for")
@@ -668,9 +668,14 @@ endforeach()
 install(TARGETS ${EXECUTABLE_NAME} DESTINATION
 	RUNTIME DESTINATION .)
 
+if(NOT WIN32)
 install(FILES Utilities/run_dssat DESTINATION .
 	PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
 	)
+
+endif()
+
+install(FILES disease_parameters.txt DESTINATION .)
 
 install(DIRECTORY Data/ DESTINATION .
 	PATTERN "*.in" EXCLUDE)
