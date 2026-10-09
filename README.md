@@ -1,451 +1,144 @@
-# Disease Impact and Severity Module - DISMO
+<p align="center">
+<img width="400px" alt="DSSAT" src="https://dssat.net/wp-content/uploads/2014/05/DSSAT-color-update.png">
+</p>
+<p align="center">
+<a href="http://dssat.net">[DSSAT Homepage]</a> | 
+<a href="http://dssat.net/about">[About DSSAT]</a> | 
+<a href="http://dssat.net/contact-us">[Contact us]</a>
+</p>
+<hr>
+The Decision Support System for Agrotechnology Transfer (DSSAT) Version is a software 
+application program that comprises crop simulation models for more than 45 crops. 
+<a href="https://github.com/DSSAT/dssat-csm-os/releases">(Check latest RELEASE here)</a>. 
 
-**Authors:** Gustavo de A. Luca, Izael M. Fattori Jr., Willingthon Pavan, Fábio R. Marin
+For DSSAT to be functional, it is 
+supported by data base management programs for soil, weather, crop management, and experimental data, and by utilities and application 
+programs. The crop simulation models simulate growth and development and predict yield, yield components and many other traits and variables as a 
+function of the soil-plant-atmosphere dynamics.
 
-**Affiliations:** Luiz de Queiroz College of Agriculture (ESALQ), University of São Paulo, Brazil; University of Florida, USA
+Questions about usage of the DSSAT Crop Modeling Ecosystem <a href="http://dssat.net/contact-us">[contact us]</a>.
 
----
+Do not know how to use DSSAT? Consider participating in the <a href="https://dssat.net/training/upcoming-workshop/">[upcoming DSSAT training workshop]</a>
 
-## Abstract
+Read more about DSSAT at <a href="http://dssat.net/about">[DSSAT Homepage]</a>
 
-This repository contains the [DSSAT-CSM](https://github.com/DSSAT/dssat-csm-os.git) (Decision Support System for Agrotechnology Transfer) source code with **DISMO** — the **Disease Impact and Severity Module** — integrated into the `Plant/Generic-Pest` framework. DISMO (`DISEASE_LEAF` in `DISMO.for`) is a process-based, daily epidemiological model for foliar fungal diseases.
+## The directory structure ##
 
-DISMO represents environmental inoculum availability, weather-dependent primary inoculum arrival, spore deposition, infection, latency, lesion expansion, sporulation, and cohort mortality. It supports **polycyclic and monocyclic epidemics** and operates with either an **observed disease-start date** or a **weather-driven onset threshold**. A pre-plant weather reconstruction initializes environmental inoculum pressure before the crop season.
+DSSAT cropping system model (CSM) design is a modular structure in which components 
+separate along scientific discipline lines and are structured to allow easy replacement 
+or addition of modules. It has one Soil module, a Crop Template module which can simulate 
+different crops by defining species input files, an interface to add individual crop 
+models if they have the same design and interface, a weather module, and a module for 
+dealing with competition for light and water among the soil, plants, and atmosphere. 
+It is also designed for incorporation into various application packages, ranging from 
+those that help researchers adapt and test the CSM to those that operate the DSSAT /CSM 
+to simulate production over time and space for different purposes.
 
-Disease effects are coupled to crop growth through the DSSAT Generic-Pest (`PEST`) module: necrotic leaf area, the additional photosynthetic impairment associated with virtual lesions, and disease-induced leaf senescence. An optional weather-based fungicide decision routine can estimate spray requirements and, when enabled, reduce infection efficiency.
+### Structure of the code ###
+    .
+    ├── build
+    │   └── ...
+    ├── cmake
+    │   └── Modules
+    │       ├── SetCompileFlag.cmake
+    │       └── SetFortranFlags.cmake
+    ├── Data
+    |   ├── Genotype
+    |   ├── Pest
+    |   └── StandardData 
+    ├── <source files>
+    ├── CMakeLists.txt
+    ├── distclean.cmake
+    ├── README.md
+    └── ...
 
-For the integrated implementation, DISMO is selected when the experiment-file disease switch is **`ISWDIS = 'Y'`** (`DISES` in the FILEX) and a valid **`disease_parameters.txt`** is present in the simulation working directory (for example: if you are simulating soybean with a soybean disease, the input file must be present at C:\DSSAT48\Soybean).
+## Compiling the code ##
 
----
+The code is compatible with the CMake utility for generating MakeFile
+and setting up projects for a variety of IDEs and compilers. To use this feature, 
+first download and install CMake. Then set up a CMake project by pointing to the
+source code directory and the build directory.
 
-## Scientific Background
+## Configuring the build ##
 
-### 1. The Epidemiological Model (`DISEASE_LEAF` — `DISMO.for`)
+It is usually preferred that you do an out-of-source build.  To do this, create a `build/` directory at the top level of your project and build there. This folder is created to organize all working files inside it, avoiding messing up your source folder. During compilation and linking, working folders are created automatically inside this folder. Any libraries created end up in `mod/`, as well as compiled Fortran `.mod` files.  The executable will end up in `bin/`.
 
-DISMO uses a **daily, cohort-based state-transition model**. Infection on a given day creates a cohort of latent lesions. Each cohort progresses through temperature-dependent latency, enters an infectious phase, expands its necrotic footprint, contributes to sporulation, and eventually expires. The primary inoculum is supplied by an environmental source; infectious cohorts can also produce secondary inoculum.
+    $ mkdir build
+    $ cd build
+    $ cmake ..
+    $ make
+    
+When you do this, temporary CMake files will not be created in your `src/` directory.  
 
-The epidemic cycle is set by **`NCYCLE`** in `disease_parameters.txt`:
+As written, this template will allow you to specify one of three different sets of compiler flags.  The default is DEBUG.  You can change this using to RELEASE or DEBUG using
 
-- **`P` — Polycyclic:** both primary inoculum and secondary inoculum generated by infectious lesions contribute to subsequent infections.
-- **`M` — Monocyclic:** primary inoculum is retained, but secondary spore production is disabled.
+    $ cmake .. -DCMAKE_BUILD_TYPE=DEBUG
+    
+or
 
-#### Disease Cycle — Processes and Functions
+    $ cmake .. -DCMAKE_BUILD_TYPE=RELEASE
 
-| Step | Function / State | Formula / Logic |
-|---|---|---|
-| Daily environmental conditions | `DISMO_UPDATE_ENVIRONMENT` | Derives relative humidity (if required), leaf wetness duration, germination/development responses, and daily climatic favourability. |
-| Environmental source build-up | `SOURCE_PRESSURE` | `SOURCE_PRESSURE = SRC_SURV × SOURCE_PRESSURE + DAILY_IP` |
-| Crop exposure / arrival clock | `FAV_SUM` | Accumulates `DAILY_IP` from crop emergence onward, without decay. |
-| Primary inoculum arrival | `PRI_RELEASED` | Starts at the specified `DAE_START` or when `FAV_SUM >= FAV_THR`, subject to the canopy deposition gate. |
-| External primary supply | `PRI_POOL` | Once arrival is enabled: `PRI_POOL += max(NDS × F_SOURCE × DAILY_IP, 0)` after the pool's daily decay. |
-| Environmental source response | `F_SOURCE` | `SOURCE_PRESSURE / (SOURCE_PRESSURE + SRC_HALF)` |
-| Airborne spore persistence | `PRI_POOL`, `SEC_SPORE_CLOUD` | The primary pool and secondary cloud decay daily; secondary spores produced today become airborne on the next day. |
-| Canopy deposition capacity | `F_CANSPO` | `FSS = min(DEP_FRAC, (HEALTH_LAI / LESION_S) / CLOUD_TOTAL)` for a positive cloud. |
-| Deposited spores | `F_DS` | `DS_TOTAL = FSS × CLOUD_TOTAL`; deposition is apportioned between primary and secondary sources. |
-| Infection efficiency | `F_IR` | `IR = YMAX × FT × (1 − exp(−(COF_A × LWD)^COF_B))`; reduced during active fungicide protection. |
-| New latent lesions | `F_LS` | `LS_TODAY = IR × DS_TOTAL` |
-| Latency progress | `F_LR` | `LR = FT_D / LDMin`; accumulated progress of at least 1 makes a cohort infectious. |
-| Lesion aging | `F_LAR` | `Lesion_Rate = FT_D / LESLIFEMAX`; cohorts expire when relative age exceeds 1. |
-| Sporulation age response | `F_LAF` | Triangular function peaking at `LESIONAGEOPT` and reaching zero at relative age 1. |
-| Lesion area expansion | `F_LEXP` | The necrotic fraction grows to its admitted final area by `LESIONAGEOPT`. |
-| Secondary inoculum | `F_PPSR_POP` | Density-dependent Verhulst production, modulated for each infectious cohort by `FT_D` and `F_LAF`. |
-| Severity | `F_SEVERITY` | `SEV% = 100 × CUM_NECROTIC / LAI_PEAK_SEASON`, bounded to 0–100%. |
-| Virtual lesion effect | `F_VIRTUAL_LESIONS` | `fvl = (1 − s)^(beta − 1)`, where `s = SEV% / 100`. |
-| Disease-induced senescence | `F_DEFOLIATION` | Adds severity-dependent leaf senescence while accounting for senescence already occurring in the crop model. |
+You can provide all kind of information CMake. See more information at [[CMake Tutorial](https://cmake.org/cmake/help/latest/guide/tutorial/index.html)].
 
-#### Temperature Response
+One usable examples could be:
 
-Two independent **beta-shaped responses** are calculated using the cardinal temperatures provided for germination and fungal development:
+    $ cmake -G "Unix Makefiles" -DCMAKE_Fortran_COMPILER=ifort ..
 
-- **`FT_G`** — germination response: `TMIN_G`, `TOT_G`, `TMAX_G`.
-- **`FT_D`** — fungal development response: `TMIN_D`, `TOT_D`, `TMAX_D`.
-- **`FT = FT_G × FT_D`** — combined temperature response applied to infection efficiency.
+In this example we are specifying the fortran compiler and the kind of project we want as result (make file project). 
 
-DISMO uses two temperature inputs within its daily environmental calculation:
+### CMakeLists.txt ###
 
-- **`T = (Tmin + Tmax) / 2`** is used to evaluate the **regional environmental source** (`DAILY_IP`) and the DVIP fungicide risk index.
-- **`T_WET = Tmin`** is used to evaluate the germination and development responses (`FT_G`, `FT_D`, `FT`) supplied to infection and cohort progression.
+This file contains all the configuration needed to set up the project.  
+Edit this file to make your own configuration and add new projects. 
+Comment/Uncomment any lines pertaining to options you may need. 
 
-All response factors are bounded between 0 and 1 and are zero outside their respective cardinal-temperature ranges.
+### distclean.cmake ###
 
-#### Leaf Wetness Duration
+This is a CMake script that will remove all files and folder that are created after running `make`.  You can run this code in one of two ways:
 
-Leaf wetness duration (`LWD`, hours per day) is estimated from relative humidity using:
+* Execute `cmake -P distclean.cmake`. (The `-P` option to `cmake` will execute a CMake script)
+* Execute `make distclean` after your Makefile has been generated.
 
-```text
-LWD = 31.31 / (1 + exp(-((RH - 85.17) / 9.13)))
-LWD = min(max(LWD, 0), 24)
-```
+### cmake/Modules/ ###
 
-The internal **`USE_WTH_RH`** setting controls the humidity source:
+This directory contains CMake scripts that aid in configuring the build system.
 
-- **`.TRUE.`:** use the relative humidity supplied by DSSAT weather data (`RHUM`).
-- **`.FALSE.` (setting in the supplied `DISMO.for`):** estimate dew point from daily minimum and maximum temperatures (`F_DEW`), then estimate relative humidity (`F_RH`).
+###### SetCompileFlag.cmake ######
 
-The same humidity mode is used during the pre-plant weather reconstruction. The field wetness response in `F_IR` depends on the resulting `LWD`.
+This file defines a function that will test a set of compiler flags to see which one works and adds that flag to a list of compiler flags.  This is used to set compile flags when you don't know which compiler will be used.
 
-#### Environmental Inoculum Build-Up and Pre-Plant Reconstruction
+###### SetFortranFlags.cmake ######
 
-DISMO separates **regional source availability** from the **crop-exposure clock**.
+This file uses the function from `SetCompilerFlag.cmake` to set the DEBUG, TESTING, and RELEASE compile flags for your build.  You might want to inspect this file and edit the flags to your liking.
 
-The daily environmental favourability index is:
+### Data ###
 
-```text
-DAILY_IP       = FT_G(Tmean) × min(max(LWD / 24, 0), 1)
-SOURCE_PRESSURE(t) = SRC_SURV × SOURCE_PRESSURE(t-1) + DAILY_IP(t)
-F_SOURCE       = SOURCE_PRESSURE / (SOURCE_PRESSURE + SRC_HALF)
-```
+This folder contains model-specific data for genotypes, pest, standard model data, code files, DSSATPRO files, etc.
 
-`SOURCE_PRESSURE` is a weather-driven, decaying accumulation representing the environmental potential to supply primary inoculum. Its daily retention is **`SRC_SURV = 0.98`**, corresponding to an approximate **34-day half-life**. `SRC_HALF` determines the half-saturation of `F_SOURCE` **on the `SOURCE_PRESSURE` scale**.
+    .
+    ├── Genotype
+    ├── Pest
+    ├── StandardData
+    ├── Data.CDE
+    ├── Detail.CDE
+    ├── DSSATPRO.v48
+    ├── ...
+    └── README.md
+ 
+The files in this repository can be combined with the files in the Data repository (https://github.com/DSSAT/dssat-csm-data) to 
+replicate the directory structure of the Windows installation of DSSAT v4.8.X (e.g., with the Genotype directory at the
+same level as the Alfalfa and other crops directories and the CDE files in the root directory).
 
-At `SEASINIT`, **`DISMO_PRESEASON`** replays **60 days before the planting date** (`INOC_LOOKBACK = 60`). It obtains the planting date and weather file details from the DSSAT input file (`CONTROL%FILEIO`), reads the relevant daily weather records, and reconstructs `SOURCE_PRESSURE` before the crop develops. The replay is anchored to **planting**, including when the simulation's starting date is elsewhere. The date helpers normalize `YYDDD` and `YYYYDDD` values and handle year boundaries; the current weather-record reader expects a five-character `YYDDD` date field.
+## Best DSSAT coding practices ##
+See: [Non-threatening best practice DSSAT Fortran coding guidelines](https://dssat.net/non-threatening-best-practice-dssat-fortran-coding-guidelines). 
 
-For the replay, the weather file must provide a readable `@DATE` header with `TMAX`, `TMIN`, and `RAIN`; `RHUM` is also required when `USE_WTH_RH = .TRUE.`. If the planting date, weather file, required columns, or complete weather coverage cannot be resolved, the model issues a warning. An unavailable input may cause the replay to be skipped; incomplete coverage can underestimate the initial source pressure.
 
-So, its highly recomended that the user starts the simulation at least 45-60 days before the planting so DISMO can recreate the primary inoculum build-up.
+## How to Cite DSSAT ##
 
-**The pre-plant replay contributes to `SOURCE_PRESSURE`, not to `FAV_SUM`.** The exposure clock starts only after crop emergence, so favourable conditions before planting do not automatically trigger disease arrival.
+If you are planning to use DSSAT in any reports or publications, please make sure to refer to the version number you used.
+The version and sub-version numbers can be found in the top section of your output files, e.g., 4.8.X (replace X with current version).
+In addition, please use the following three references for DSSAT and the Cropping System Model. Other related publications can be found
+in the Documentation section under DSSAT References and Model References.
 
-#### Disease Start — Observed and Weather-Driven Modes
+For more information see: [How to Cite DSSAT](https://dssat.net/how-to-cite-dssat/).
 
-The parameter **`DAE_START`** selects how primary inoculum arrival is triggered:
-
-| Mode | `DAE_START` | Arrival trigger | Role of `FAV_THR` |
-|---|---|---|---|
-| **Observed / prescribed start** | A numeric day after emergence, e.g. `18` | Arrival is enabled when `DAE >= DAE_START`. | Ignored for arrival timing. |
-| **Unobserved / weather-driven start** | `-99` | Arrival is enabled when `FAV_SUM >= FAV_THR`. | Required positive accumulated-favourability threshold. |
-
-`FAV_SUM` is the **undecayed sum of `DAILY_IP` beginning after emergence**:
-
-```text
-FAV_SUM(t) = FAV_SUM(t-1) + DAILY_IP(t)    [after emergence]
-```
-
-The arrival latch (`PRI_RELEASED`) is evaluated when the canopy permits deposition: **`LAI_TOTAL >= LAI_MIN_START = 0.5`** and healthy leaf area is positive. Consequently, the effective first inoculum supply can occur after the prescribed day or threshold crossing if the canopy is not yet suitable. Arrival enables the primary inoculum source; visible disease develops subsequently through deposition, infection, and the latent period.
-
-**`FAV_THR` determines when the weather-driven arrival condition is met; `NDS` sets the magnitude of the potential daily primary spore supply once arrival is enabled.** They serve distinct functions and must be specified consistently with the intended experiment.
-
-#### Primary and Secondary Inoculum Dynamics
-
-After `PRI_RELEASED` becomes true, the model adds weather-modulated primary spores on each deposition-eligible day:
-
-```text
-PRI_POOL = SPOR_DECAY × PRI_POOL
-PRI_POOL = PRI_POOL + max(NDS × F_SOURCE × DAILY_IP, 0)  [after arrival]
-```
-
-`NDS` therefore represents the **primary spore supply scale**, before the modifiers `F_SOURCE` and `DAILY_IP`. Primary spores that do not settle remain in `PRI_POOL` and are subject to daily decay. **`SPOR_DECAY = 0.7937`** is the daily retained fraction.
-
-In polycyclic mode, infectious cohorts produce spores into `SEC_SPORES_PENDING`. On the following day, this emission enters `SEC_SPORE_CLOUD`, with existing secondary spores also subject to **`SEC_DECAY = 0.7937`**. In monocyclic mode, secondary emission is zero.
-
-The combined airborne cloud is `CLOUD_TOTAL = PRI_CLOUD + SEC_CLOUD`. Daily deposition is limited by both the settling fraction and available canopy interception capacity:
-
-```text
-DS_TOTAL = min(DEP_FRAC × CLOUD_TOTAL, HEALTH_LAI / LESION_S)
-DS_PRI   = DS_TOTAL × PRI_CLOUD / CLOUD_TOTAL
-DS_SEC   = DS_TOTAL × SEC_CLOUD / CLOUD_TOTAL
-```
-
-These expressions apply when `CLOUD_TOTAL > 0` and deposition is allowed. Deposited spores are deducted from their respective airborne stores, while `DEP_FRAC` (0, 1] determines the maximum fraction that can settle per day.
-
-#### Cohort Progression, Leaf Area and Disease Severity
-
-New daily infections are stored in a **250-day ring buffer** (`MAXDAYS = 250`). Each active cohort stores lesion count, accumulated latency, infectious status and relative lesion age. The model also tracks its admitted final lesion area (`ADMITTED_AREA`). If a new cohort would overwrite an active buffer slot, DISMO issues a warning.
-
-Upon becoming infectious, a cohort is assigned a final footprint based on its lesion count (`LESION_S` per lesion). Admission is capped by available susceptible canopy area, including area already reserved for expanding cohorts (`PEND_AREA`). The lesion's **necrotic area increases progressively** as its relative age approaches `LESIONAGEOPT`, using `F_LEXP`; sporulation follows the triangular `F_LAF` response. The final admitted area remains reserved during expansion, preventing the same canopy area from being assigned repeatedly.
-
-The model distinguishes two canopy references:
-
-```text
-LAI_PEAK_SEASON = max(previous peak LAI, LAI_TOTAL)
-LAI_SUSC       = max(LAI_PEAK_SEASON - CUM_NECROTIC, 0)
-HEALTH_LAI     = LAI_TOTAL × max(1 - CUM_NECROTIC / LAI_PEAK_SEASON, 0)
-CUM_NECROTIC   = min(CUM_NECROTIC + NEW_LOSS_TODAY, LAI_PEAK_SEASON)
-SEV%           = 100 × CUM_NECROTIC / LAI_PEAK_SEASON
-```
-
-`LAI_SUSC` is the season-peak-based area available to the epidemic's cohort accounting and sporulation capacity. `HEALTH_LAI` represents the undiseased portion of the **current** canopy and controls spore deposition. `CUM_NECROTIC` is a nondecreasing cumulative state, and `SEV%` is a bounded, nondecreasing severity measure within a season.
-
-The area passed to Generic-Pest is:
-
-```text
-DISEASE_LAI = (CUM_NECROTIC / LAI_PEAK_SEASON) × LAI_TOTAL × 10000
-```
-
-`DISEASE_LAI` is bounded to the current LAI and is expressed in **cm² leaf m⁻² ground**, matching the `DISLA` coupling variable.
-
-#### Virtual Lesion Effect on Photosynthesis
-
-Virtual lesions represent an **additional reduction of photosynthesis in remaining green tissue** associated with disease (Bastiaans, 1991; Primiano & Amorim, 2020). Using the season's cumulative severity fraction `s = SEV% / 100`, DISMO calculates:
-
-```text
-VIRTUAL_PHOTO_FACTOR = (1 - s)^(beta - 1)
-```
-
-The severity fraction is internally bounded below 1 for numerical stability; the factor is constrained to [0, 1]. **`beta = 1`** implies no additional virtual-lesion effect, while higher values strengthen the photosynthetic reduction. Generic-Pest receives this factor as `VPHOTF_DISMO` and applies it through `ASMDM` to available assimilates, separately from the leaf area lost to necrosis.
-
-#### Disease-Induced Senescence (Defoliation)
-
-DISMO also estimates additional leaf senescence as a function of severity and the natural senescence already simulated by the crop model (Willocquet et al., 2025):
-
-```text
-rrsen            = SLDOT / WTLF
-rrsenD           = rrds × (SEV% / 100)
-DISEASE_SEN_RATE = max((rrsenD - rrsen × rrsenD) × WTLF, 0)
-```
-
-Here, `WTLF` is current leaf mass, `SLDOT` is the crop model's natural leaf senescence rate, and **`rrds`** is the relative disease-induced senescence parameter (d⁻¹). The result is zero when leaf mass is negligible. This contribution is passed to Generic-Pest as the disease-related leaf senescence rate (`WLIDOT`).
-
----
-
-### 2. Fungicide Decision Module
-
-DISMO includes a rule-based fungicide scheduling routine, controlled by the internal **`USE_FUNGICIDE`** setting (default **`.FALSE.`**). The daily **DVIP** risk class is calculated from `LWD` and mean air temperature (`T`) following the weather-response approach of Beruski et al. (2020). Values range from 0 to 3 and are accumulated in a seven-day rolling sum (`SUM7`).
-
-| Component | Setting in `DISMO.for` | Description |
-|---|---|---|
-| Daily DVIP | `0–3` | Daily categorical risk index. |
-| Rolling risk | `SUM7` | Sum of seven consecutive daily DVIP classes. |
-| Spray threshold | `DVIP_THR = 6` | Spray decision threshold for the selected humidity mode. |
-| Minimum healthy canopy | `HEALTH_LAI >= 0.1` | Required for a spray decision. |
-| Re-spray buffer | `FUNG_BUF_D = 16` | Days between eligible applications. |
-| Residual protection | `FUNG_RES_D = 14` days | Duration of active fungicide protection after an application. |
-| Infection reduction | `FUNG_EFFICIENCY = 0.723` | During residual protection, `IR` is multiplied by `1 - FUNG_EFFICIENCY`. |
-
-**`NSPRAYS` counts scheduled applications regardless of `USE_FUNGICIDE`.** When the switch is `.FALSE.`, risk and application decisions are still recorded, but `FungActive` remains false and there is no fungicide-mediated reduction in infection efficiency. The threshold and buffer values are internal settings; they are not currently read from FILEX.
-
----
-
-### 3. Integration Architecture
-
-DISMO is implemented in **`Plant/Generic-Pest/DISMO.for`** and called from **`Plant/Generic-Pest/PEST.for`**. CROPGRO exchanges canopy, phenology, and weather information with the pest framework; DISMO returns disease damage variables through the same integration points.
-
-```text
-CROPGRO.for
-  └── CALL PEST(...)                      [DISES / ISWDIS = 'Y']
-        └── PEST.for
-              ├── RUNINIT   → Detect disease_parameters.txt
-              │              → CALL DISEASE_LEAF(RUNINIT)
-              │              → Read pathogen parameters; initialize DISMO.OUT
-              ├── SEASINIT  → Initialize Generic-Pest state
-              │              → CALL DISEASE_LEAF(SEASINIT)
-              │              → Reconstruct pre-plant environment
-              ├── RATE      → GET weather, LAI, emergence and harvest state
-              │              → CALL DISEASE_LEAF(RATE)
-              │              → DISLA = DISEASE_LAI_DISMO
-              │              → WLIDOT = DISEASE_SEN_RATE
-              │              → PUT('PLANT','VPHOTF', VPHOTF_DISMO)
-              ├── INTEGR    → CALL ASMDM(..., VPHOTF_DISMO, ...)
-              │              → Apply photosynthetic damage
-              └── OUTPUT / SEASEND
-                             → CALL DISEASE_LEAF(OUTPUT / SEASEND)
-                             → Write/close DISMO.OUT
-```
-
-**Key design points:**
-
-- DISMO is enabled in `PEST.for` only when `ISWDIS = 'Y'` and `disease_parameters.txt` exists in the **current working directory**.
-- When DISMO runs, its `RATE` branch returns after assigning disease damage, without performing the classic FILET time-series pest rate calculations. Likewise, DISMO retains the `ASMDM` integration while bypassing the remaining classic pest integration branch.
-- `ASMDM` applies the virtual-lesion photosynthetic factor; the leaf-area and senescence signals are coupled through `DISLA` and `WLIDOT`.
-- `DISMO_SEASON_RESET` clears epidemic, cohort and spray state between seasons; the environmental stores are reinitialized, and pre-plant conditions are reconstructed separately for each season.
-
-#### Data Exchange Between Modules
-
-| Variable | Producer | Consumer | Mechanism | Description |
-|---|---|---|---|---|
-| `TMIN`, `TMAX`, `RHUM` | DSSAT weather | `PEST` → DISMO | `GET(WEATHER_PEST)` | Daily weather inputs. |
-| `XLAI` | CROPGRO | `PEST` → DISMO | `PUT/GET('PLANT','XLAID',...)` | Current canopy leaf area index. |
-| `NVEG0` | CROPGRO / phenology | `PEST` → DISMO | `PUT/GET('PLANT','NVEG0D',...)` | Emergence threshold on the DAS clock. |
-| `YREMRG` | CROPGRO / phenology | `PEST` → DISMO | `PUT/GET('PLANT','YREMGD',...)` | Emergence date. |
-| `YREND` | CROPGRO | `PEST` → DISMO | `PUT/GET('PLANT','YRENDD',...)` | End-of-season date. |
-| `WTLF`, `SLDOT` | CROPGRO | `PEST` → DISMO | `PEST` call arguments | Leaf mass and natural leaf senescence. |
-| `DISEASE_LAI_DISMO` | DISMO | `PEST` / crop model | `DISLA` | Diseased leaf area (cm² m⁻²). |
-| `VPHOTF_DISMO` | DISMO | `PEST` / `ASMDM` | `PUT('PLANT','VPHOTF',...)`, `ASMDM` argument | Photosynthetic factor for virtual lesions. |
-| `DISEASE_SEN_RATE` | DISMO | `PEST` / crop model | `WLIDOT` | Additional disease-induced leaf senescence. |
-| `ASMDOT` | `ASMDM` | CROPGRO | `PEST` output | Assimilate damage from the coupling framework. |
-
----
-
-## How to Use
-
-### 1. Compilation
-
-1. Clone this repository, which includes the DSSAT-CSM source tree and the modified modules.
-2. Ensure `Plant/Generic-Pest/DISMO.for`, `PEST.for`, and `ASMDM.for` are included in the build, together with the repository's CROPGRO integration code.
-3. Configure and build the DSSAT-CSM solution with a compatible Fortran toolchain. The repository's `CMakeLists.txt` already lists `Plant/Generic-Pest/DISMO.for` among its source files. For a CMake-based build, the general workflow is:
-
-   ```bash
-   cmake -S . -B build
-   cmake --build build --config Release
-   ```
-
-   A platform-appropriate compiler, generator and DSSAT build dependencies are required. When using a Visual Studio solution generated by CMake, reconfigure and rebuild the generated project after editing the Fortran sources.
-
-4. Place `disease_parameters.txt` in the **simulation working directory** before launching a DISMO-enabled run.
-
-On Windows with Visual Studio 2022 and Intel Fortran Classic, use:
-
-```powershell
-.\Build-Windows.ps1 -Configuration Release
-.\Build-Windows.ps1 -Configuration Debug
-```
-
-The executables are written to `build/bin/Release` and `build/bin/Debug`. See [integration validation and data compatibility](docs/DISMO-validation.md) for the tested cases and the humidity settings used in comparison with the reference implementation.
-
-
-### 2. Activating DISMO: `ISWDIS = 'Y'` and a Parameter File
-
-DISMO is selected through the **`DISES`** field in the `*SIMULATION CONTROLS` section of the DSSAT experiment file (`.SBX`, `.PNX`, or equivalent FILEX):
-
-```text
-*SIMULATION CONTROLS
-...
-@N WATER NITRO SYMBI PHOS POTAS DISES TILL ...
- 1 Y     Y     Y     N    N     Y     N    ...
-```
-
-| `DISES` | `disease_parameters.txt` in working directory | Behaviour |
-|---|---|---|
-| `Y` | Present | `RUN_DISMO = .TRUE.`; DISMO runs through Generic-Pest. |
-| `Y` | Absent | DISMO is not selected; the classic DSSAT pest pathway is used if configured. |
-| `N` | Either | DISMO is not activated. |
-
-Once the module is selected, the file reader checks the parameter-record structure and the selected disease. Invalid required fields or parameter values can terminate the simulation with a DSSAT diagnostic rather than silently proceeding.
-
-### 3. Input Files
-
-#### `disease_parameters.txt`
-
-The parameter file contains a disease selector and a database of pathogen-specific parameter records. It is read from the **current working directory**.
-
-Its structure is:
-
-```text
-*DISEASE CONTROL
-@TARGET_DISEASE
-AsianSBRust1
-
-*DISEASE DATABASE
-@VAR#  VRNAME  DAE_START  NCYCLE  SRC_HALF  FAV_THR  NDS  DEP_FRAC  LESION_S  KVERHULST  RVERHULST  YMAX  COF_A  COF_B  TMIN_G  TOT_G  TMAX_G  TMIN_D  TOT_D  TMAX_D  LDMin  LESIONAGEOPT  LESLIFEMAX  beta  rrds
-D45382  AsianSBRust1  -99  P  9.42  13.9700  250384.0  0.2500  0.00000224  447209  1.4050  0.220  0.9960  4.1500  9.670  24.363  32.717  10.256  25.000  34.00  5.2800  0.1420  37.7000  2.50  0.100
-```
-
-The example reproduces the parameter values in the accompanying input file; it is an illustration of the accepted record structure, not a universal parameterization for other pathogens or locations.
-
-`@TARGET_DISEASE` specifies the `VRNAME` to read from the `*DISEASE DATABASE` section. Comments beginning with `!` are ignored. The selected disease record must contain **all 25 whitespace-separated fields** in the order below; a missing column must **not** be represented by an empty space because that shifts subsequent fields. `-99` is the explicit marker for weather-driven `DAE_START`, and the numeric reader also recognizes `-99` as a default sentinel for other fields.
-
-| # | Parameter | Type | Units / Range | Description |
-|---|---|---|---|---|
-| 1 | `VAR#` | CHAR | — | Pathogen record identifier. |
-| 2 | `VRNAME` | CHAR | — | Disease name; must match `@TARGET_DISEASE`. |
-| 3 | `DAE_START` | INT | Days after emergence, or `-99` | Prescribed/observed arrival day; `-99` selects weather-driven arrival. |
-| 4 | `NCYCLE` | CHAR | `P` / `M` | Polycyclic or monocyclic epidemic. |
-| 5 | `SRC_HALF` | REAL | `SOURCE_PRESSURE` scale | Half-saturation constant for the regional source response (`F_SOURCE`). |
-| 6 | `FAV_THR` | REAL | Accumulated favourable-day equivalents | Threshold of `FAV_SUM` for weather-driven arrival; required positive when `DAE_START = -99`. |
-| 7 | `NDS` | REAL | Primary spores (model scale) | Daily potential primary supply scale before `F_SOURCE` and `DAILY_IP`; must be positive. |
-| 8 | `DEP_FRAC` | REAL | (0, 1] | Maximum fraction of the combined spore cloud deposited per day. |
-| 9 | `LESION_S` | REAL | m² per lesion | Average lesion area. |
-| 10 | `KVERHULST` | REAL | Lesions per LAI unit | Carrying capacity for logistic sporulation. |
-| 11 | `RVERHULST` | REAL | Intrinsic rate parameter | Verhulst population growth coefficient. |
-| 12 | `YMAX` | REAL | 0–1 | Maximum infection efficiency. |
-| 13 | `COF_A` | REAL | Model coefficient | Leaf wetness infection-response coefficient. |
-| 14 | `COF_B` | REAL | Model coefficient | Leaf wetness infection-response exponent. |
-| 15 | `TMIN_G` | REAL | °C | Minimum temperature for germination. |
-| 16 | `TOT_G` | REAL | °C | Optimal temperature for germination. |
-| 17 | `TMAX_G` | REAL | °C | Maximum temperature for germination. |
-| 18 | `TMIN_D` | REAL | °C | Minimum temperature for fungal development. |
-| 19 | `TOT_D` | REAL | °C | Optimal temperature for fungal development. |
-| 20 | `TMAX_D` | REAL | °C | Maximum temperature for fungal development. |
-| 21 | `LDMin` | REAL | Days | Minimum latent period under a unitary temperature response. |
-| 22 | `LESIONAGEOPT` | REAL | (0, 1) | Relative lesion age at full expansion and peak sporulation. |
-| 23 | `LESLIFEMAX` | REAL | Days | Lesion lifespan on the normalized age scale. |
-| 24 | `beta` | REAL | >= 1 | Virtual-lesion exponent; 1 disables additional photosynthetic impairment. |
-| 25 | `rrds` | REAL | d⁻¹ | Relative rate of disease-induced leaf senescence. |
-
-**Parameter checks:** the reader requires `TMIN_G < TOT_G < TMAX_G` and `TMIN_D < TOT_D < TMAX_D`; it requires positive `NDS` and `0 < DEP_FRAC <= 1`. Values of `LESIONAGEOPT` outside (0, 1) are replaced with 0.5 after a warning; `beta < 1` is clamped to 1. Unrecognized `NCYCLE` values fall back to `P`.
-
-**Onset-mode examples:**
-
-- **Observed mode:** set `DAE_START` to a numeric emergence-relative day (for example, `18`). `FAV_THR` does not determine arrival in this mode.
-- **Weather-driven mode:** set `DAE_START = -99` and specify a positive `FAV_THR`. The model accumulates `FAV_SUM` from emergence and enables the primary source when the threshold is reached and the canopy deposition gate is satisfied.
-
-#### Internal Switches and Fixed Constants in `DISMO.for`
-
-These settings are assigned during `RUNINIT` and can be changed in the source code before rebuilding.
-
-| Setting | Value in supplied code | Effect |
-|---|---|---|
-| `USE_FUNGICIDE` | `.FALSE.` | Controls whether estimated fungicide applications reduce infection. |
-| `USE_WTH_RH` | `.TRUE.` | Uses DSSAT `RHUM`; `.FALSE.` derives RH from temperatures. |
-| `INOC_LOOKBACK` | `60` days | Pre-plant weather reconstruction window. |
-| `SRC_SURV` | `0.98` | Daily retention of environmental source pressure. |
-| `SPOR_DECAY` | `0.7937` | Daily retention of primary airborne inoculum. |
-| `SEC_DECAY` | `0.7937` | Daily retention of secondary airborne inoculum. |
-| `LAI_MIN_START` | `0.5` | Minimum canopy LAI permitting deposition and arrival evaluation. |
-| `MAXDAYS` | `250` | Cohort ring-buffer length. |
-| `FUNG_RES_D` | `14` days | Fungicide residual-protection period. |
-| `FUNG_EFFICIENCY` | `0.723` | Proportional infection-efficiency reduction under active protection. |
-
-### 4. Output Files
-
-#### `DISMO.OUT`
-
-- **Location:** written to the simulation working directory.
-- **Timing:** the file is opened at `RUNINIT`, written at each `OUTPUT` call and closed at `SEASEND`. Run 1 replaces the existing file; subsequent runs/seasons can append to it.
-- **Organization:** each run has a descriptive header (`*RUN`, model, experiment and treatment information), followed by one row per output date. The tabular data begin at the `@YEAR` header.
-- **Pre-plant diagnostics:** where dates match the reconstruction records, the `RHU%`, `LWDh`, `FTMP` and `FAVS` columns use the weather-replay data; `FAVS` is zero during the pre-plant replay because the crop exposure clock has not started.
-
-| Column | Units | Description | Notes |
-|---|---|---|---|
-| `YEAR` | Year | Calendar year. | Four-digit year. |
-| `DOY` | 1–366 | Day of year. | — |
-| `DAS` | Days | DSSAT simulation DAS clock. | `CONTROL%DAS`. |
-| `DAE` | Days | Days after emergence. | Zero before emergence. |
-| `LAIH` | m² m⁻² | Healthy leaf area index of the current canopy. | `HEALTH_LAI`. |
-| `LWDh` | h | Estimated daily leaf wetness duration. | Derived from RH. |
-| `RHU%` | % | Relative humidity used in the environmental calculations. | Weather-provided or reconstructed. |
-| `FTMP` | 0–1 | Combined temperature response for infection/cohort development. | Evaluated at `Tmin`. |
-| `LAIT` | m² m⁻² | Total current canopy LAI. | — |
-| `SUM7` | 0–21 | Seven-day accumulated DVIP risk. | Printed numerically. |
-| `NSPRAYS` | Count | Estimated cumulative fungicide applications. | May increase while fungicide effect is disabled. |
-| `FACT` | Boolean | Whether fungicide residual protection is active. | `T` or `F`. |
-| `SEV%` | % | Cumulative, nondecreasing disease severity. | Main severity calibration target. |
-| `SRCP` | Source-pressure index | Decayed environmental source-pressure accumulation. | `SOURCE_PRESSURE`. |
-| `FAVS` | Favourable-day equivalents | Accumulated post-emergence exposure. | `FAV_SUM`, used for weather-driven onset. |
-| `PRIM` | Primary spore model units | Airborne primary inoculum available today. | `PRI_CLOUD`. |
-| `SSCL` | Secondary spore model units | Airborne secondary inoculum remaining after deposition. | `SEC_SPORE_CLOUD`. |
-| `DSTO` | Deposited spore model units d⁻¹ | Total primary + secondary spores deposited today. | `DS_TOTAL`. |
-| `LSTO` | New latent lesions d⁻¹ | New daily infections / latent lesions. | `LS_TODAY`. |
-| `NLTO` | m² m⁻² d⁻¹ | Newly necrotic leaf area today. | `NEW_LOSS_TODAY`. |
-| `FSRC` | 0–1 | Saturating response of the environmental source. | `F_SOURCE`. |
-
-**Interpretation:** `SRCP` measures the available regional source, `FAVS` is the crop-exposure clock, `PRIM` and `SSCL` represent the two airborne inoculum stores, and `DSTO`/`LSTO` describe deposition and infection. `NLTO` tracks daily lesion expansion into necrosis, whereas `SEV%` is cumulative and normalized by peak seasonal LAI.
-
-**Coupling units:** `DISEASE_LAI` is returned from DISMO to `PEST` in **cm² m⁻²** for use as `DISLA`. It is distinct from the `SEV%` column in `DISMO.OUT`. `NLTO` is expressed on an LAI basis (m² m⁻² per day).
-
----
-
-## Citation
-
-For the archived code and data accompanying the soybean rust calibration and validation study, please cite:
-
-Luca, G. de A., Fattori Junior, I. M., Del Ponte, E. M., & Marin, F. R. (2025). *Code and data for: Process-Based Simulation of Soybean Rust in Brazil: A DSSAT-Coupled Approach* (Version v1.0.0) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.17266278
-
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17266278.svg)](https://doi.org/10.5281/zenodo.17266278)
-
----
-
-- **DISMO proof of concept, calibration and validation:**
-  - Luca, G. de A., Fattori Junior, I. M., Del Ponte, E. M., & Marin, F. R. (2026). Process-based simulation of soybean rust in Brazil: A DSSAT-coupled approach. *European Journal of Agronomy*, 178, 128139. https://doi.org/10.1016/j.eja.2026.128139
-- **Virtual lesions:**
-  - Primiano, I. V., & Amorim, L. (2020). *Tropical Plant Pathology*.
-- **Disease-induced senescence:**
-  - Willocquet, L., Bregaglio, S., Ferrise, R., Kim, K., & Savary, S. (2025). DYNAMO-A: A generic simulation model coupling crop growth and disease epidemic. *PLOS ONE*, 20(4), e0321261. https://doi.org/10.1371/journal.pone.0321261
-- **Fungicide decision index (DVIP):**
-  - Beruski, N. D., et al. (2020). *Plant Disease*.
-- **Fungicide recommendations:**
-  - Godoy, C. V., et al. (2024). *Embrapa Technical Circular*.
-- **Epidemiological model basis:**
-  - Caubel, J., et al. (2017). *European Journal of Agronomy*, 90, 53–66.
-- **DSSAT framework:**
-  - Jones, J. W., et al. (2003). The DSSAT Cropping System Model. *European Journal of Agronomy*, 18(3–4), 235–265.

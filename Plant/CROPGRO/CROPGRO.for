@@ -36,7 +36,7 @@ C  07/08/2003 CHP Added KSEVAP for export to soil evaporation routines.
 !  06/11/2007 CHP PStres1 affects photosynthesis, PStres2 affects growth
 !  06/15/2022 CHP Added CropStatus
 !  01/26/2023 CHP Reduce compile warnings: add EXTERNAL stmts, remove 
-!                 unused variables, shorten lines.
+!                 unused variables, shorten lines. 
 !  02/10/2023 JG  Added ozone effect on photosynthesis and leaf senescence
 !                 unused variables, shorten lines.
 !  10/24/2024 CHP Added TRLV to PlantGro.OUT
@@ -234,7 +234,7 @@ C=======================================================================
       TDAY   = WEATHER % TDAY  
       TGRO   = WEATHER % TGRO  
       TGROAV = WEATHER % TGROAV
-      TMIN   = WEATHER % TMIN
+      TMIN   = WEATHER % TMIN  
       OZON7  = WEATHER % OZON7
 
 !***********************************************************************
@@ -431,7 +431,7 @@ C-----------------------------------------------------------------------
      &    SENESCE, SLA, STMWT, SWFAC, TGRO, TGROAV, TOPWT, 
      &    TOTWT, TURFAC, VSTAGE, WTLF, WTNCAN, WTNLF, WTNST, 
      &    WTNSD, WTNUP, WTNFX, XLAI, YRPLT, TRLV, LINTW, LINTP,
-     &    WTNRT, WTNSH)
+     &    WTNRT, WTNSH) 
 
 !     Initialize Overview.out file.
       CALL OPHARV(CONTROL, ISWITCH, 

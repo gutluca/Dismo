@@ -132,7 +132,7 @@ C  RUNINIT -- once per run
 C***********************************************************************
       IF (DYNAMIC .EQ. RUNINIT) THEN
  
-          USE_WTH_RH = .TRUE.
+          USE_WTH_RH = .FALSE.
  
 C-----------------------------------------------------------------------
 C  Fixed model constants. 
@@ -151,8 +151,14 @@ C  Fungicide block -- move to the FILEX management section later.
           USE_FUNGICIDE   = .FALSE.
           FUNG_EFFICIENCY = 0.723
           FUNG_RES_D      = 14
-          FUNG_BUF_D      = 16
-          DVIP_THR        = 6
+          IF (USE_WTH_RH) THEN
+              FUNG_BUF_D = 16
+              DVIP_THR   = 6
+          ELSE
+C  Calibrated against the USE_WTH_RH reference for RH-derived weather.
+              FUNG_BUF_D = 23
+              DVIP_THR   = 1
+          END IF
  
           CALL READ_DISEASE_PARAMETERS(CONTROL,
      &         LESION_S, KVERHULST, RVERHULST,

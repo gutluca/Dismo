@@ -97,8 +97,7 @@ C     Root Variables
       REAL RLV(NL)
       REAL PRLV
 C     Seed Variables
-      REAL NSDDS, NSDDL, NSDDM, PSDDS, PSDDL, PSDDM
-      REAL WSDDS, WSDDL, WSDDM
+      REAL NSDDS, NSDDL, NSDDM, PSDDS, PSDDL, PSDDM, WSDDS, WSDDL, WSDDM
       REAL CSDM, CSDN
       REAL SDDES(NCOHORTS), SDIDOT, SWIDOT
       REAL TSDNOS, TSDNOL, TSDNOM, TSDWTS, TSDWTL, TSDWTM
@@ -107,8 +106,7 @@ C     Seed Variables
 !     REAL SEEDNO
       REAL WTSD(NCOHORTS), SDNO(NCOHORTS)
 C     Shell Variables
-      REAL NSHDS, NSHDL, NSHDM, PSHDS, PSHDL, PSHDM
-      REAL WSHDS, WSHDL, WSHDM
+      REAL NSHDS, NSHDL, NSHDM, PSHDS, PSHDL, PSHDM, WSHDS, WSHDL, WSHDM
       REAL CSHM, CSHN
       REAL SHIDOT, WSHIDT
       REAL TSHNOS, TSHNOL, TSHNOM, TSHWTS, TSHWTL, TSHWTM
@@ -119,6 +117,11 @@ C     Plant Variables
 C     Photosynthesis Variables
       REAL TPSR, PPSR, CASM, ASMDOT
       REAL PGAVL
+      
+!     Redundant with SAVE stmt earlier
+!      SAVE CASM, CRLV, CRLF, CRTM
+!      SAVE CSDM, CSDN, CSHM, CSHN
+!      SAVE CLAI, CLFM, CSTEM
 C     DISMO state arrays
       REAL    DISEASE_LAI_DISMO
       REAL    VPHOTF_DISMO, WLIDOT_DISMO
@@ -169,7 +172,8 @@ C-----------------------------------------------------------------------
       CALL IPPEST(
      &    FILEIO, LUNIO,                                  !Input
      &    FILEP, FILET, PATHEX, PATHPE, PHTHRS8, TRTNUM)  !Output
-
+!     Note: PHTHRS8 should be imported from plant routines unless
+!       cultivar sections are standardized.  CHP 08/27/2003
 C-----------------------------------------------------------------------
 C     Subroutine IPPARM reads FILEP, the PEST progress file.
 C-----------------------------------------------------------------------
@@ -208,7 +212,7 @@ C  Initialize whole plant factors
 C-----------------------------------------------------------------------
       CALL PESTCP(
      &    PCN, PCPID, PCTID, PDCF1,                       !Input
-     &    PL, PLTPOP, PNO, RTWT, SLA, STMWT, TOPWT,       !Input
+     &    PL, PLTPOP, PNO, RTWT, SLA, STMWT, TOPWT,        !Input
      &    TSDNOL, TSDNOM, TSDNOS, TSDWTL, TSDWTM, TSDWTS, !Input
      &    TSHNOL, TSHNOM, TSHNOS, TSHWTL, TSHWTM, TSHWTS, !Input
      &    VSTAGE, WTLF,                                   !Input
@@ -241,7 +245,7 @@ C-----------------------------------------------------------------------
      &    SHIDOT, TSDNOL, TSDNOM, TSDNOS, TSDWTL,         !Output
      &    TSDWTM, TSDWTS, TSHNOL, TSHNOM, TSHNOS,         !Output
      &    TSHWTL, TSHWTM, TSHWTS,                         !Output
-     &    SEASINIT,WSDD,PSDD,SDWT)                        !Control
+     &    SEASINIT,WSDD,PSDD,SDWT)                             !Control
 
       CALL VEGDM(SEASINIT,
      &    AREALF, CLW, CSW, PCLMT, PCSTMD, PDLA, PLFAD,   !Input
@@ -252,7 +256,7 @@ C-----------------------------------------------------------------------
      &    LAIDOT, WSIDOT)                                 !Output
 
       CALL ROOTDM(
-     &    PRLV,PRTLF, PRTLV, PRTMD, RTWT, SOILPROP, TRTLF,!Input
+     &    PRLV,PRTLF, PRTLV, PRTMD, RTWT, SOILPROP, TRTLF,     !Input
      &    RLV, TRTLV, WRTMD,                              !Input/Output
      &    CRLF, CRLV, CRTM, RLFDOT, RLVDOT, WRIDOT,       !Output
      &    SEASINIT)                                       !Control
@@ -261,7 +265,7 @@ C-----------------------------------------------------------------------
      &    ASMDOT, CASM, CLAI, CLFM, CPPLTD, CRLF, CRLV,      
      &    CRTM, CSDM, CSDN, CSHM, CSHN, CSTEM, DISLA, DISLAP,   
      &    LAIDOT, PPLTD, RLFDOT, RLVDOT, SDIDOT, SHIDOT, 
-     &    SWIDOT, WLIDOT, WRIDOT, WSIDOT, WSHIDT, YRPLT)
+     &    SWIDOT, WLIDOT, WRIDOT, WSIDOT, WSHIDT, YRPLT)     
 
 C-----------------------------------------------------------------------
 C     DISMO seasonal initialization
@@ -320,7 +324,7 @@ C-----------------------------------------------------------------------
         RETURN
       ENDIF
 C-----------------------------------------------------------------------
-C     Classic PEST rate routines - only when PCN > 0 (ISWDIS='Y')
+C     Interpolate between pest damage factors to get today's pest level.
 C-----------------------------------------------------------------------
       IF (PCN .LE. 0) RETURN
 
@@ -375,7 +379,7 @@ C-----------------------------------------------------------------------
 C     Call root pest damage routine and compute damage rates
 C-----------------------------------------------------------------------
       CALL ROOTDM(
-     &    PRLV,PRTLF, PRTLV, PRTMD, RTWT, SOILPROP, TRTLF,!Input
+     &    PRLV,PRTLF, PRTLV, PRTMD, RTWT, SOILPROP, TRTLF,     !Input
      &    RLV, TRTLV, WRTMD,                              !Input/Output
      &    CRLF, CRLV, CRTM, RLFDOT, RLVDOT, WRIDOT,       !Output
      &    RATE)                                           !Control
@@ -430,8 +434,7 @@ C-----------------------------------------------------------------------
 C     Call root pest damage routine and compute damage factors
 C-----------------------------------------------------------------------
       CALL ROOTDM(
-     &    PRLV, PRTLF, PRTLV, PRTMD, RTWT, SOILPROP,     !Input
-     &    TRTLF,                                          !Input
+     &    PRLV, PRTLF, PRTLV, PRTMD, RTWT, SOILPROP, TRTLF,     !Input
      &    RLV, TRTLV, WRTMD,                              !Input/Output
      &    CRLF, CRLV, CRTM, RLFDOT, RLVDOT, WRIDOT,       !Output
      &    INTEGR)                                         !Control
@@ -446,7 +449,7 @@ C-----------------------------------------------------------------------
      &    ASMDOT, CASM, CLAI, CLFM, CPPLTD, CRLF, CRLV,      
      &    CRTM, CSDM, CSDN, CSHM, CSHN, CSTEM, DISLA, DISLAP,   
      &    LAIDOT, PPLTD, RLFDOT, RLVDOT, SDIDOT, SHIDOT, 
-     &    SWIDOT, WLIDOT, WRIDOT, WSIDOT, WSHIDT, YRPLT)
+     &    SWIDOT, WLIDOT, WRIDOT, WSIDOT, WSHIDT, YRPLT)     
 
 C-----------------------------------------------------------------------
 C     DISMO output / season end

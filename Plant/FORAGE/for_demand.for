@@ -273,7 +273,7 @@ C-----------------------------------------------------------------------
         READ(LFDELT, '(F6.0)', IOSTAT=ERR) LFDEL
         LFDEL = MAX(-0.05,MIN(0.05,LFDEL))
         IF (ECOTYP .EQ. ECONO) EXIT
-
+        
         ELSE IF (ISECT .EQ. 0) THEN
          IF (ECONO .EQ. 'DFAULT') CALL ERROR(ERRKEY,3,FILEGC,LNUM)
          ECONO = 'DFAULT'

@@ -38,12 +38,6 @@ ENDIF(BT STREQUAL "RELEASE")
 # If the compiler flags have already been set, return now
 #########################################################
 
-IF(WIN32)
-    STRING(REPLACE "/FORCE" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
-    SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" CACHE STRING
-        "Linker flags; unresolved symbols must fail the build" FORCE)
-ENDIF()
-
 IF(CMAKE_Fortran_FLAGS_RELEASE AND CMAKE_Fortran_FLAGS_TESTING AND CMAKE_Fortran_FLAGS_DEBUG)
     RETURN ()
 ENDIF(CMAKE_Fortran_FLAGS_RELEASE AND CMAKE_Fortran_FLAGS_TESTING AND CMAKE_Fortran_FLAGS_DEBUG)
@@ -78,8 +72,7 @@ SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS}"
 # Entire line is meaningful and that continued character constants never have implicit
 # spaces appended to them to fill out the line (Intel uses only 72, 80, or 132)
 SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS}"
-                 Fortran "/extend-source:132"       # Intel Windows
-                         "-132"                     # Intel Fortran
+                 Fortran "-132"                     # Intel Fortran
                          "-ffixed-line-length-none" # GNU
                 )
 
@@ -149,7 +142,7 @@ IF(DYNAMIC_LINK STREQUAL "OFF")
         ENDIF()
     ELSE ()
             SET_COMPILE_FLAG(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}"
-                            Fortran
+                            Fortran "/FORCE"               # MSVC
                                     "-static"              # GNU
                             )
             SET_COMPILE_FLAG(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}"
@@ -216,7 +209,7 @@ SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS_TESTING "${CMAKE_Fortran_FLAGS_TESTING}"
 
 # Unroll loops
 SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE}"
-                 Fortran "/Qunroll"        # Intel Windows
+                 Fortran "/unroll"        # Intel Windows
                          "-funroll-loops" # GNU
                          "-unroll"        # Intel
                          "-Munroll"       # Portland Group
@@ -224,7 +217,7 @@ SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE}"
 
 # Inline functions
 SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE}"
-                 Fortran "/Ob2"           # Intel Windows
+                 Fortran "/Qinline"           # Intel Windows
                          "-inline"            # Intel
                          "-finline-functions" # GNU
                          "-Minline"           # Portland Group
