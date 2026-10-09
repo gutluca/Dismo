@@ -126,7 +126,8 @@ C     Storage organ Variables
       REAL CSRW, CSTRM, SSRDOT, STRWT, WSRFDOT, WSRIDOT
 
       REAL CSRFRZ, DSTOR, SRDAM
-      REAL PCSTRD, PSTRD, WSTRD     
+      REAL PCSTRD, PSTRD, WSTRD
+      REAL VPHOTF_DISMO
 
       
 !      SAVE CASM, CRLV, CRLF, CRTM
@@ -195,6 +196,8 @@ C***********************************************************************
 !     Seasonal initialization - run once per season
 C***********************************************************************
       ELSEIF (DYNAMIC .EQ. SEASINIT) THEN
+          
+      VPHOTF_DISMO = 1.0
 C-----------------------------------------------------------------------
 C     Subroutine FOR_IPPROG reads FILET, the pest time series file.
 C-----------------------------------------------------------------------
@@ -228,8 +231,8 @@ C-----------------------------------------------------------------------
 C  Initialize assimilate, seed, vegetative and root pest damage factors
 C-----------------------------------------------------------------------
       CALL ASMDM(
-     &    PGAVL, PPSR, TPSR,                              !Input
-     &    ASMDOT, CASM,                                   !Output
+     &    PGAVL, PPSR, TPSR, VPHOTF_DISMO,                 !Input
+     &    ASMDOT, CASM,                                    !Output
      &    SEASINIT)                                       !Control
 
       CALL FOR_SEEDDM(
@@ -356,7 +359,7 @@ C     Call assimilative damage routine to update assimilative damage
 !          variables.
 C-----------------------------------------------------------------------
       CALL ASMDM(
-     &    PGAVL, PPSR, TPSR,                              !Input
+     &    PGAVL, PPSR, TPSR, VPHOTF_DISMO,                !Input
      &    ASMDOT, CASM,                                   !Output
      &    INTEGR)                                         !Control
 C-----------------------------------------------------------------------

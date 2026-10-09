@@ -477,6 +477,7 @@ set(
         "Plant/Generic-Pest/LINDM.for"
         "Plant/Generic-Pest/OPPEST.for"
         "Plant/Generic-Pest/PEST.for"
+        "Plant/Generic-Pest/DISMO.for"
         "Plant/Generic-Pest/PESTCP.for"
         "Plant/Generic-Pest/ROOTDM.for"
         "Plant/Generic-Pest/SEEDDM.for"

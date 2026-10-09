@@ -19,6 +19,7 @@ C  05/09/2003 CHP Expanded number of pests to 200 (from 100)
 C  06/18/2015 GH  Moved MaxPest to ModuleDefs
 !  01/26/2023 CHP Reduce compile warnings: add EXTERNAL stmts, remove 
 !                 unused variables, shorten lines. 
+!  03/10/2026 GAL Added DISMO integration
 C-----------------------------------------------------------------------
 C  Called by: PLANT
 C  Calls:     ASMDM
@@ -31,6 +32,7 @@ C             PESTCP
 C             ROOTDM
 C             SEEDDM
 C             VEGDM
+C             DISEASE_LEAF - DISMO
 C=======================================================================
       SUBROUTINE PEST(CONTROL, ISWITCH, 
      &    AREALF, CLW, CSW, LAGSD, LNGPEG, NR2, PGAVL,    !Input
@@ -45,9 +47,10 @@ C=======================================================================
       USE ModuleDefs     !Definitions of constructed variable types, 
                          ! which contain control information, soil
                          ! parameters, hourly weather data.
+      USE ModuleData
       IMPLICIT NONE
       EXTERNAL IPPEST, IPPARM, IPPROG, PESTCP, ASMDM, SEEDDM, VEGDM, 
-     &  ROOTDM, OPPEST, LINDM, TIMDIF
+     &  ROOTDM, OPPEST, LINDM, TIMDIF, DISEASE_LEAF !dismo
       SAVE
 !-----------------------------------------------------------------------
       CHARACTER*1   ISWDIS
@@ -94,7 +97,8 @@ C     Root Variables
       REAL RLV(NL)
       REAL PRLV
 C     Seed Variables
-      REAL NSDDS, NSDDL, NSDDM, PSDDS, PSDDL, PSDDM, WSDDS, WSDDL, WSDDM
+      REAL NSDDS, NSDDL, NSDDM, PSDDS, PSDDL, PSDDM
+      REAL WSDDS, WSDDL, WSDDM
       REAL CSDM, CSDN
       REAL SDDES(NCOHORTS), SDIDOT, SWIDOT
       REAL TSDNOS, TSDNOL, TSDNOM, TSDWTS, TSDWTL, TSDWTM
@@ -103,7 +107,8 @@ C     Seed Variables
 !     REAL SEEDNO
       REAL WTSD(NCOHORTS), SDNO(NCOHORTS)
 C     Shell Variables
-      REAL NSHDS, NSHDL, NSHDM, PSHDS, PSHDL, PSHDM, WSHDS, WSHDL, WSHDM
+      REAL NSHDS, NSHDL, NSHDM, PSHDS, PSHDL, PSHDM
+      REAL WSHDS, WSHDL, WSHDM
       REAL CSHM, CSHN
       REAL SHIDOT, WSHIDT
       REAL TSHNOS, TSHNOL, TSHNOM, TSHWTS, TSHWTL, TSHWTM
@@ -114,11 +119,12 @@ C     Plant Variables
 C     Photosynthesis Variables
       REAL TPSR, PPSR, CASM, ASMDOT
       REAL PGAVL
-      
-!     Redundant with SAVE stmt earlier
-!      SAVE CASM, CRLV, CRLF, CRTM
-!      SAVE CSDM, CSDN, CSHM, CSHN
-!      SAVE CLAI, CLFM, CSTEM
+C     DISMO state arrays
+      REAL    DISEASE_LAI_DISMO
+      REAL    VPHOTF_DISMO, WLIDOT_DISMO
+      REAL    TMIN_DIS, TMAX_DIS, RHUM_DIS, XLAI_DIS
+      INTEGER YREMRG_DIS, NVEG0_DIS, YREND_DIS
+      LOGICAL RUN_DISMO
 
 !-----------------------------------------------------------------------
 !     Define constructed variable types based on definitions in
@@ -133,6 +139,9 @@ C     Photosynthesis Variables
 !     The variable "ISWITCH" is of type "SwitchType".
       TYPE (SwitchType) ISWITCH
 
+!     Weather variable for DISMO data exchange via GET
+      TYPE (WeatherType) WEATHER_PEST
+
 !     Transfer values from constructed data types into local variables.
       DAS     = CONTROL % DAS
       DYNAMIC = CONTROL % DYNAMIC
@@ -142,6 +151,12 @@ C     Photosynthesis Variables
       YRDOY   = CONTROL % YRDOY
 
       ISWDIS  = ISWITCH % ISWDIS
+
+      IF (ISWDIS .EQ. 'Y') THEN
+        INQUIRE(FILE='disease_parameters.txt', EXIST=RUN_DISMO)
+      ELSE
+        RUN_DISMO = .FALSE.
+      ENDIF
 
 C***********************************************************************
 C***********************************************************************
@@ -154,14 +169,24 @@ C-----------------------------------------------------------------------
       CALL IPPEST(
      &    FILEIO, LUNIO,                                  !Input
      &    FILEP, FILET, PATHEX, PATHPE, PHTHRS8, TRTNUM)  !Output
-!     Note: PHTHRS8 should be imported from plant routines unless
-!       cultivar sections are standardized.  CHP 08/27/2003
+
 C-----------------------------------------------------------------------
 C     Subroutine IPPARM reads FILEP, the PEST progress file.
 C-----------------------------------------------------------------------
       CALL IPPARM(
      &    FILEP, PATHPE, ISWDIS,                          !Input
      &    PCPID, PCTID, PDCF1, PID)                       !Output
+
+      IF (RUN_DISMO) THEN
+        DISEASE_LAI_DISMO = 0.0
+        VPHOTF_DISMO = 1.0
+      
+      CALL DISEASE_LEAF(RUNINIT,
+     &    CONTROL, ISWITCH, 0.0, 0.0, 0.0,
+     &    0.0, 0.0, 0.0,
+     &    YRDOY, 0, 0, 0,
+     &    DISEASE_LAI_DISMO, VPHOTF_DISMO, WLIDOT_DISMO)
+      ENDIF
 
 C***********************************************************************
 C***********************************************************************
@@ -171,7 +196,7 @@ C***********************************************************************
 C-----------------------------------------------------------------------
 C     Subroutine IPPROG reads FILET, the pest time series file.
 C-----------------------------------------------------------------------
-      IF (ISWDIS .EQ. 'Y') THEN
+      IF (ISWDIS .EQ. 'Y' .AND. .NOT. RUN_DISMO) THEN
         CALL IPPROG(CONTROL, 
      &    FILET, PATHEX, PID, YRPLT, TRTNUM,              !Input
      &    IDAP, PCN, PNO, POBS, PSTHD, YPL)               !Output
@@ -181,7 +206,7 @@ C  Initialize whole plant factors
 C-----------------------------------------------------------------------
       CALL PESTCP(
      &    PCN, PCPID, PCTID, PDCF1,                       !Input
-     &    PL, PLTPOP, PNO, RTWT, SLA, STMWT, TOPWT,        !Input
+     &    PL, PLTPOP, PNO, RTWT, SLA, STMWT, TOPWT,       !Input
      &    TSDNOL, TSDNOM, TSDNOS, TSDWTL, TSDWTM, TSDWTS, !Input
      &    TSHNOL, TSHNOM, TSHNOS, TSHWTL, TSHWTM, TSHWTS, !Input
      &    VSTAGE, WTLF,                                   !Input
@@ -199,7 +224,7 @@ C-----------------------------------------------------------------------
 C  Initialize assimilate, seed, vegetative and root pest damage factors
 C-----------------------------------------------------------------------
       CALL ASMDM(
-     &    PGAVL, PPSR, TPSR,                              !Input
+     &    PGAVL, PPSR, TPSR, VPHOTF_DISMO,                !Input
      &    ASMDOT, CASM,                                   !Output
      &    SEASINIT)                                       !Control
 
@@ -214,7 +239,7 @@ C-----------------------------------------------------------------------
      &    SHIDOT, TSDNOL, TSDNOM, TSDNOS, TSDWTL,         !Output
      &    TSDWTM, TSDWTS, TSHNOL, TSHNOM, TSHNOS,         !Output
      &    TSHWTL, TSHWTM, TSHWTS,                         !Output
-     &    SEASINIT,WSDD,PSDD,SDWT)                             !Control
+     &    SEASINIT,WSDD,PSDD,SDWT)                        !Control
 
       CALL VEGDM(SEASINIT,
      &    AREALF, CLW, CSW, PCLMT, PCSTMD, PDLA, PLFAD,   !Input
@@ -225,7 +250,7 @@ C-----------------------------------------------------------------------
      &    LAIDOT, WSIDOT)                                 !Output
 
       CALL ROOTDM(
-     &    PRLV,PRTLF, PRTLV, PRTMD, RTWT, SOILPROP, TRTLF,     !Input
+     &    PRLV,PRTLF, PRTLV, PRTMD, RTWT, SOILPROP, TRTLF,!Input
      &    RLV, TRTLV, WRTMD,                              !Input/Output
      &    CRLF, CRLV, CRTM, RLFDOT, RLVDOT, WRIDOT,       !Output
      &    SEASINIT)                                       !Control
@@ -234,7 +259,32 @@ C-----------------------------------------------------------------------
      &    ASMDOT, CASM, CLAI, CLFM, CPPLTD, CRLF, CRLV,      
      &    CRTM, CSDM, CSDN, CSHM, CSHN, CSTEM, DISLA, DISLAP,   
      &    LAIDOT, PPLTD, RLFDOT, RLVDOT, SDIDOT, SHIDOT, 
-     &    SWIDOT, WLIDOT, WRIDOT, WSIDOT, WSHIDT, YRPLT)     
+     &    SWIDOT, WLIDOT, WRIDOT, WSIDOT, WSHIDT, YRPLT)
+
+C-----------------------------------------------------------------------
+C     DISMO seasonal initialization
+C-----------------------------------------------------------------------
+      IF (RUN_DISMO) THEN
+        DISEASE_LAI_DISMO = 0.0
+        VPHOTF_DISMO = 1.0
+        WLIDOT_DISMO = 0.0
+
+        CALL GET(WEATHER_PEST)
+        TMIN_DIS = WEATHER_PEST % TMIN
+        TMAX_DIS = WEATHER_PEST % TMAX
+        RHUM_DIS = WEATHER_PEST % RHUM
+        CALL GET('PLANT', 'XLAID',  XLAI_DIS)
+        CALL GET('PLANT', 'NVEG0D', NVEG0_DIS)
+        CALL GET('PLANT', 'YREMGD', YREMRG_DIS)
+        CALL GET('PLANT', 'YRENDD', YREND_DIS)
+
+        CALL DISEASE_LEAF(SEASINIT,
+     &    CONTROL, ISWITCH, TMIN_DIS, TMAX_DIS, RHUM_DIS,
+     &    XLAI_DIS, WTLF, SLDOT,
+     &    YRDOY, YREMRG_DIS, NVEG0_DIS, YREND_DIS,
+     &    DISEASE_LAI_DISMO, VPHOTF_DISMO, WLIDOT_DISMO)
+      ENDIF
+      CALL PUT('PLANT', 'VPHOTF', VPHOTF_DISMO)
 
 !***********************************************************************
 !***********************************************************************
@@ -242,7 +292,32 @@ C-----------------------------------------------------------------------
 !***********************************************************************
       ELSEIF (DYNAMIC .EQ. RATE) THEN
 C-----------------------------------------------------------------------
-C     Interpolate between pest damage factors to get today's pest level.
+C     DISMO daily rate - runs before classic PEST when RUN_DISMO=.TRUE.
+C-----------------------------------------------------------------------
+      IF (RUN_DISMO) THEN
+        DISLA = 0.0
+        CALL GET(WEATHER_PEST)
+        TMIN_DIS = WEATHER_PEST % TMIN
+        TMAX_DIS = WEATHER_PEST % TMAX
+        RHUM_DIS = WEATHER_PEST % RHUM
+        CALL GET('PLANT', 'XLAID',  XLAI_DIS)
+        CALL GET('PLANT', 'NVEG0D', NVEG0_DIS)
+        CALL GET('PLANT', 'YRENDD', YREND_DIS)
+
+        CALL DISEASE_LEAF(RATE,
+     &    CONTROL, ISWITCH, TMIN_DIS, TMAX_DIS, RHUM_DIS,
+     &    XLAI_DIS, WTLF, SLDOT,
+     &    YRDOY, YREMRG_DIS, NVEG0_DIS, YREND_DIS,
+     &    DISEASE_LAI_DISMO, VPHOTF_DISMO, WLIDOT_DISMO)
+
+!       Merge DISMO diseased leaf area into the coupling framework
+        DISLA = DISLA + DISEASE_LAI_DISMO
+        WLIDOT = WLIDOT_DISMO
+        CALL PUT('PLANT', 'VPHOTF', VPHOTF_DISMO)
+        RETURN
+      ENDIF
+C-----------------------------------------------------------------------
+C     Classic PEST rate routines - only when PCN > 0 (ISWDIS='Y')
 C-----------------------------------------------------------------------
       IF (PCN .LE. 0) RETURN
 
@@ -297,7 +372,7 @@ C-----------------------------------------------------------------------
 C     Call root pest damage routine and compute damage rates
 C-----------------------------------------------------------------------
       CALL ROOTDM(
-     &    PRLV,PRTLF, PRTLV, PRTMD, RTWT, SOILPROP, TRTLF,     !Input
+     &    PRLV,PRTLF, PRTLV, PRTMD, RTWT, SOILPROP, TRTLF,!Input
      &    RLV, TRTLV, WRTMD,                              !Input/Output
      &    CRLF, CRLV, CRTM, RLFDOT, RLVDOT, WRIDOT,       !Output
      &    RATE)                                           !Control
@@ -308,15 +383,21 @@ C-----------------------------------------------------------------------
 !***********************************************************************
       ELSEIF (DYNAMIC .EQ. INTEGR) THEN
 C-----------------------------------------------------------------------
-      IF (PCN .LE. 0) RETURN
-C-----------------------------------------------------------------------
-C     Call assimilative damage routine to update assimilative damage
-!          variables.
+C     ASMDM always runs: handles both classic (PPSR/TPSR) and
+C     DISMO virtual lesion damage (VPHOTF_DISMO)
 C-----------------------------------------------------------------------
       CALL ASMDM(
-     &    PGAVL, PPSR, TPSR,                              !Input
+     &    PGAVL, PPSR, TPSR, VPHOTF_DISMO,                !Input
      &    ASMDOT, CASM,                                   !Output
      &    INTEGR)                                         !Control
+C-----------------------------------------------------------------------
+C     If DISMO is active, skip classic PEST integration
+C-----------------------------------------------------------------------
+      IF (RUN_DISMO) RETURN
+C-----------------------------------------------------------------------
+C     Classic PEST integration - only when PCN > 0 (ISWDIS='Y')
+C-----------------------------------------------------------------------
+      IF (PCN .LE. 0) RETURN
 C-----------------------------------------------------------------------
 C     Call routine to apply damage to seed and shell
 C-----------------------------------------------------------------------
@@ -346,7 +427,8 @@ C-----------------------------------------------------------------------
 C     Call root pest damage routine and compute damage factors
 C-----------------------------------------------------------------------
       CALL ROOTDM(
-     &    PRLV, PRTLF, PRTLV, PRTMD, RTWT, SOILPROP, TRTLF,     !Input
+     &    PRLV, PRTLF, PRTLV, PRTMD, RTWT, SOILPROP,     !Input
+     &    TRTLF,                                          !Input
      &    RLV, TRTLV, WRTMD,                              !Input/Output
      &    CRLF, CRLV, CRTM, RLFDOT, RLVDOT, WRIDOT,       !Output
      &    INTEGR)                                         !Control
@@ -361,7 +443,19 @@ C-----------------------------------------------------------------------
      &    ASMDOT, CASM, CLAI, CLFM, CPPLTD, CRLF, CRLV,      
      &    CRTM, CSDM, CSDN, CSHM, CSHN, CSTEM, DISLA, DISLAP,   
      &    LAIDOT, PPLTD, RLFDOT, RLVDOT, SDIDOT, SHIDOT, 
-     &    SWIDOT, WLIDOT, WRIDOT, WSIDOT, WSHIDT, YRPLT)     
+     &    SWIDOT, WLIDOT, WRIDOT, WSIDOT, WSHIDT, YRPLT)
+
+C-----------------------------------------------------------------------
+C     DISMO output / season end
+C-----------------------------------------------------------------------
+      IF (RUN_DISMO) THEN
+        CALL GET('PLANT', 'XLAID', XLAI_DIS)
+        CALL DISEASE_LEAF(DYNAMIC,
+     &    CONTROL, ISWITCH, TMIN_DIS, TMAX_DIS, RHUM_DIS,
+     &    XLAI_DIS, WTLF, SLDOT,
+     &    YRDOY, YREMRG_DIS, NVEG0_DIS, YREND_DIS,
+     &    DISEASE_LAI_DISMO, VPHOTF_DISMO, WLIDOT_DISMO)
+      ENDIF
 
 !***********************************************************************
 !***********************************************************************
