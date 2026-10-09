@@ -1,0 +1,43 @@
+!=======================================================================
+! DISEASE IMPACT AND SEVERITY MODULE (DISMO) - INPUT FILE
+!=======================================================================
+!
+! Types: 'B' biological, 'I' inoculum/activation.
+!
+! INOCULUM AND ACTIVATION
+! DAE_START : observed onset in days after emergence, or -99 for automatic
+!             (weather-driven) onset.  NEVER blank -- a blank shifts every
+!             later column and the record is rejected.
+! NCYCLE    : M monocyclic, P polycyclic.
+! SRC_HALF  : half-saturation of the source response, on the SOURCE_PRESSURE
+!             scale (decayed sum, 34 d half-life).
+! FAV_THR   : accumulated favourability (FAV_SUM) at which external inoculum
+!             arrives.  Read only when DAE_START is -99.
+! NDS       : primary spores released on arrival, before F_SOURCE.
+! DEP_FRAC  : fraction of the airborne cloud that settles per day.
+!
+! BIOLOGICAL PARAMETERS
+! LESION_S     : average area of one lesion (m2)
+! KVERHULST    : carrying capacity, max lesions per LAI unit (= 1/LESION_S)
+! RVERHULST    : intrinsic logistic growth rate (see NOTE B in DISMO.for --
+!                it is NOT the apparent infection rate of the literature)
+! YMAX         : maximum infection efficiency (0-1)
+! COF_A, COF_B : infection response to leaf wetness
+! TMIN_G/TOT_G/TMAX_G : cardinal temperatures, germination
+! TMIN_D/TOT_D/TMAX_D : cardinal temperatures, development
+! LDMin        : minimum latent period (d)
+! LESIONAGEOPT : relative lesion age of peak sporulation, in (0,1)
+! LESLIFEMAX   : maximum lesion lifespan (d)
+! beta         : virtual lesion exponent; 1 = no effect
+! rrds         : relative rate of disease-induced senescence (d-1)
+!=======================================================================
+*DISEASE CONTROL
+
+@TARGET_DISEASE
+AsianSBRust1
+
+*DISEASE DATABASE
+
+@VAR#     VRNAME............   DAE_START  NCYCLE  SRC_HALF     FAV_THR         NDS    DEP_FRAC       LESION_S      KVERHULST      RVERHULST        YMAX       COF_A       COF_B      TMIN_G       TOT_G      TMAX_G      TMIN_D       TOT_D      TMAX_D       LDMin   LESIONAGEOPT     LESLIFEMAX      beta      rrds
+!TYPE                                  I       I         I           I           I           I              B              B              B           B           B           B           B           B           B           B           B           B           B              B              B         B         B
+D45382      AsianSBRust1             -99       P      9.42     13.9700    250384.0      0.2500     0.00000224         447209         1.4050       0.220      0.9960      4.1500       9.670      24.363      32.717      10.256      25.000       34.00      5.2800         0.1420        37.7000      2.50     0.100
