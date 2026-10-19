@@ -416,15 +416,7 @@ These settings are assigned during `RUNINIT` and can be changed in the source co
 ---
 
 ## Citation
-
-For the archived code and data accompanying the soybean rust calibration and validation study, please cite:
-
-Luca, G. de A., Fattori Junior, I. M., Del Ponte, E. M., & Marin, F. R. (2025). *Code and data for: Process-Based Simulation of Soybean Rust in Brazil: A DSSAT-Coupled Approach* (Version v1.0.0) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.17266278
-
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17266278.svg)](https://doi.org/10.5281/zenodo.17266278)
-
 ---
-
 - **DISMO proof of concept, calibration and validation:**
   - Luca, G. de A., Fattori Junior, I. M., Del Ponte, E. M., & Marin, F. R. (2026). Process-based simulation of soybean rust in Brazil: A DSSAT-coupled approach. *European Journal of Agronomy*, 178, 128139. https://doi.org/10.1016/j.eja.2026.128139
 - **Virtual lesions:**
